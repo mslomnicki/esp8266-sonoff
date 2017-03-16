@@ -19,6 +19,8 @@ HttpRequests.relay = {
             switchRelay(gpio.HIGH)
         elseif (request.value == 'OFF') then
             switchRelay(gpio.LOW)
+        elseif (request.value == 'TOGGLE') then
+            toggleRelay()
         end
         return {
             status = 200,

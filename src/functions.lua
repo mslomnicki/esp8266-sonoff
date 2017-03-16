@@ -76,16 +76,19 @@ function buttonSetup()
         if (_buttondebounced == 0) then
             _buttondebounced = 1
             _debouncerTimer:start()
-            --Change the state
-            if (gpio.read(relayPin) == gpio.HIGH) then
-                switchRelay(gpio.LOW)
-                print("Was on, turning off")
-            else
-                switchRelay(gpio.HIGH)
-                print("Was off, turning on")
-            end
+            toggleRelay()
         end
     end)
+end
+
+function toggleRelay()
+    if (gpio.read(relayPin) == gpio.HIGH) then
+        switchRelay(gpio.LOW)
+        print("Was on, turning off")
+    else
+        switchRelay(gpio.HIGH)
+        print("Was off, turning on")
+    end
 end
 
 function switchRelay(value)
