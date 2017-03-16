@@ -29,7 +29,7 @@ HttpRequests.relay = {
     end
 }
 
-HttpRequest.uptime = {
+HttpRequests.uptime = {
     GET = function()
         return {
             status = 200,
@@ -40,7 +40,7 @@ HttpRequest.uptime = {
     end
 }
 
-HttpRequest.reboot = {
+HttpRequests.reboot = {
     POST = function()
         node.restart()
     end
