@@ -1,3 +1,4 @@
+json = require "cjson"
 wifi.setmode(wifi.NULLMODE)
 print('MAC: ',wifi.sta.getmac())
 print('chip: ',node.chipid())
@@ -7,39 +8,19 @@ if file.exists("config.lua") then
   dofile("config.lua")
 	else print("No config.lua")
 end
+dofile("functions.lc")
 
-if file.exists("hostname") then
-  file.open("hostname", "r")
-  hostname=file.read('\n')
-	hostname=string.gsub(hostname,"[^a-zA-Z0-9_\-]",'')
-  if (hostname == '') then hostname = nil end
-  file.close()
-else print("No hostname")
-end
+gpioSetup()
+wifiSetup()
+setupTelnetServer(23)
 
-if not tmr.alarm(0, 500, tmr.ALARM_SINGLE, function() 
-   -- dajemy 500 ms na:
-	 -- * wcisniecie przycisku 
-	 -- * wykasowanie init.lua w razie bledu w service_mode
-    if (gpio.read(service_button) == 0 ) then
-			if file.exists("service_mode.lc") then
-		  	print("Starting service mode")
-				dofile("service_mode.lc")
-	    else print("No service_mode.lc")
-      end
-		else
-		  if file.exists("main.lc") then
-			  print("Starting script main.lc.");
-			  dofile("main.lc") 
-			else
-			  if file.exists("main.lua") then
-				  print("Starting script main.lua.");
-					dofile("main.lua")
-				else
-				  print("No script found.");
-				end
-			end
-		end
-  end) then 
-  print("Timer 0 already in use!") 
+ledTimer = tmr.create()
+ledTimer:alarm(5000, tmr.ALARM_AUTO, function()
+    ledBlink()
+end)
+
+if(file.exists("httpserver.lc") and file.exists("httprequests.lua")) then
+    HttpRequests = {}
+    dofile("httpserver.lc")
+    dofile("httprequests.lua")
 end
