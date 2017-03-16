@@ -24,14 +24,15 @@ function wifiSetup()
     wifi.setmode(wifi.STATION)
     wifi.setphymode(wifi.PHYMODE_N)
     wifi.sta.sethostname(hostname)
+    wifi.sta.autoconnect(1)
     wifi.sta.connect()
     wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function()
         gpio.write(ledPin, gpio.HIGH)
     end)
 end
 
-function setupTelnetServer(port)
-    telnetServerInUse = false
+function telnet()
+    local telnetServerInUse = false
     function listenTelnetServer(sock)
         if telnetServerInUse then
             sock:send("Telnet server in use.\n")
@@ -60,8 +61,8 @@ function setupTelnetServer(port)
         sock:send("Welcome to NodeMCU world.\n> ")
     end
 
-    telnetServer = net.createServer(net.TCP, 180)
-    telnetServer:listen(port, listenTelnetServer)
+    local telnetServer = net.createServer(net.TCP, 180)
+    telnetServer:listen(23, listenTelnetServer)
 end
 
 function ledBlink()
@@ -75,18 +76,20 @@ function buttonSetup()
         if (_buttondebounced == 0) then
             _buttondebounced = 1
             _debouncerTimer:start()
-
             --Change the state
             if (gpio.read(relayPin) == gpio.HIGH) then
-                gpio.write(relayPin, gpio.LOW)
+                switchRelay(gpio.LOW)
                 print("Was on, turning off")
             else
-                gpio.write(relayPin, gpio.HIGH)
+                switchRelay(gpio.HIGH)
                 print("Was off, turning on")
             end
-
-            --            mqttAct()
-            --            mqtt_update()
         end
     end)
+end
+
+function switchRelay(value)
+    gpio.write(relayPin, value)
+    --            mqttAct()
+    --            mqtt_update()
 end

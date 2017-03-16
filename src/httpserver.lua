@@ -1,139 +1,116 @@
 function isempty(s)
-  return s == nil or s == ''
+    return s == nil or s == ''
 end
 
-function sendResponse(conn, response) 
-    reponseNiceName = "unknown"
-    
+function prepareResponse(response)
+    local responseNiceName = "unknown"
+
     if response.status == nil then
         response.status = 200
-        reponseNiceName = "OK"
+        responseNiceName = "OK"
     end
-        
+
+    local body = "HTTP/1.0 " .. response.status .. " " .. responseNiceName .. "\n"
+
     if response.headers == nil then
         response.headers = {}
     end
-    
-    conn:send("HTTP/1.1 " .. response.status .. " " .. reponseNiceName .. " \n")
+
     foundContentType = false;
-    for k,v in pairs(response.headers) do 
-         conn:send(k .. ":" .. v .. "\n")
-         if k == "Content-Type" then
+    for k, v in pairs(response.headers) do
+        body = body .. k .. ":" .. v .. "\n"
+        if k == "Content-Type" then
             foundContentType = true
-         end
+        end
     end
     if not foundContentType then
-        conn:send("Content-Type:application/json\n\n")
+        body = body .. "Content-Type:application/json\n\n"
         if response.content ~= nil then
-            conn:send(json.encode(response.content))
+            body = body .. json.encode(response.content)
         end
     else
-        conn:send(response.content)
-        conn:send(json.encode(response.content))
+        body = body .. response.content
+        body = body .. json.encode(response.content)
     end
-    response = nil
+    return body
 end
 
-function elSplit( value, inSplitPattern, outResults )
-   if not outResults then
-      outResults = { }
-   end
-   local theStart = 1
-   local theSplitStart, theSplitEnd = string.find( value, inSplitPattern, theStart )
-   while theSplitStart do
-      table.insert( outResults, string.sub( value, theStart, theSplitStart-1 ) )
-      theStart = theSplitEnd + 1
-      theSplitStart, theSplitEnd = string.find( value, inSplitPattern, theStart )
-   end
-   table.insert( outResults, string.sub( value, theStart ) )
-   return outResults
+function elSplit(value, inSplitPattern, outResults)
+    if not outResults then
+        outResults = {}
+    end
+    local theStart = 1
+    local theSplitStart, theSplitEnd = string.find(value, inSplitPattern, theStart)
+    while theSplitStart do
+        table.insert(outResults, string.sub(value, theStart, theSplitStart - 1))
+        theStart = theSplitEnd + 1
+        theSplitStart, theSplitEnd = string.find(value, inSplitPattern, theStart)
+    end
+    table.insert(outResults, string.sub(value, theStart))
+    return outResults
 end
 
 function createRequest(payload)
     local request = {}
-    
     local splitPayload = elSplit(payload, "\r\n\r\n")
     local httpRequest = elSplit((splitPayload[1]), "\r\n")
-    if not isempty((splitPayload[2])) then 
+    if not isempty((splitPayload[2])) then
         request.content = json.decode((splitPayload[2]))
     end
-    
     local splitUp = elSplit((httpRequest[1]), "%s+")
-    
-    request.method = (splitUp[1])
-    request.path = (splitUp[2])
-    request.protocal = (splitUp[3])
 
+    request.method = splitUp[1]
+    request.path = splitUp[2]
+    request.protocol = splitUp[3]
     local pathParts = elSplit(request.path, "/")
-    local maybeId = tonumber((pathParts[table.getn(pathParts)]))
 
-    if maybeId ~= nil then 
-        request.fullPath = request.url
-        request.path = string.sub(request.fullPath, 1, string.len(request.fullPath) - string.len("" .. maybeId))
-        request.id = maybeId
+    if(#pathParts == 2) then -- 1 parametr
+        request.path = pathParts[2]
+    elseif(#pathParts == 3) then-- 2 parametry, czyli komenda i wartosc
+        request.path = pathParts[2]
+        request.value = pathParts[3]
     end
-    
-    --request.headers = {}
-    --table.remove(httpRequest, 1)
-    --for idx, line in ipairs(httpRequest) do
-        --local header = elSplit(line, ":")
-        --local name = (header[1])
-        --local value = (header[2]) 
-        --request.headers[name] = value
-        --header = nil
-        --name = nil
-        --value = nil
-    --end
-    print(node.heap())
-    httpRequest = nil
-    splitUp = nil
-    splitPayload = nil
-    maybeId = nil
-    collectgarbage()
-    print(node.heap())
     return request
 end
 
-srv=net.createServer(net.TCP)
-    srv:listen(80,function(conn)
-    conn:on("receive",function(conn,payload)
+local srv = net.createServer(net.TCP, 30)
+srv:listen(80, function(conn)
+    conn:on("receive", function(conn, payload)
         print("Got something...")
-
         local request = createRequest(payload)
-
+        local response;
         print("Method: " .. request.method .. " Location: " .. request.path)
-        
+
         if HttpRequests[request.path] ~= nil then
             if HttpRequests[request.path][request.method] ~= nil then
                 print("Executing code")
-                local response = HttpRequests[request.path][request.method](request)
-                sendResponse(conn, response)
-                response = nil
+                local retVal = HttpRequests[request.path][request.method](request)
+                response = prepareResponse(retVal)
             else
-                sendResponse(conn, {
+                response = prepareResponse({
                     status = 405,
-                    content = { error = "Method not supported for URL", path = request.path}
-                });
+                    content = { error = "Method not supported for URL", path = request.path }
+                })
             end
         else
-            if file.open(string.sub(request.path, 2)) ~= nil then
-                conn:send("HTTP/1.1 200 OK\n")
-                conn:send("Content-Type: text/html\n\n")
+            if file.open(request.path) ~= nil then
+                response = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n"
                 local line = file.readline()
                 while line ~= nil do
-                    conn:send(line)
+                    response = response .. line
                     line = file.readline()
                 end
                 file.close()
             else
-                sendResponse(conn, {
+                response = prepareResponse({
                     status = 404,
-                    content = { error = "File not found", url = request.path}
+                    content = { error = "File not found", url = request.path }
                 })
             end
         end
-        conn:close()
-        request = nil
-        collectgarbage()
+        print(response)
+        conn:send(response)
+        response = nil
     end)
-end)   
+    conn:on("sent", function(conn) conn:close() end)
+end)

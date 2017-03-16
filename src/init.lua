@@ -12,7 +12,7 @@ dofile("functions.lc")
 
 gpioSetup()
 wifiSetup()
-setupTelnetServer(23)
+telnet()
 
 ledTimer = tmr.create()
 ledTimer:alarm(5000, tmr.ALARM_AUTO, function()
