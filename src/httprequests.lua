@@ -25,7 +25,7 @@ HttpRequests.relay = {
         return {
             status = 200,
             content = {
-                status = "OK"
+                relay = gpio.read(relayPin)
             }
         }
     end
