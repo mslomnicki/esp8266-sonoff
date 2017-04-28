@@ -1,4 +1,5 @@
 hostname = "sonoff-test"
-mqttuser = "sonoff-1ch"
+mqttbroker = "192.168.1.3"
+mqttuser = hostname
 mqttpassword = "emvead123"
 type="sonoff-1ch"

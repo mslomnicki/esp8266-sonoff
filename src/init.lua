@@ -1,26 +1,71 @@
-json = require "cjson"
-wifi.setmode(wifi.NULLMODE)
-print('MAC: ',wifi.sta.getmac())
-print('chip: ',node.chipid())
-print('heap: ',node.heap())
+function boot()
+    if file.exists("config.lua") then
+        dofile("config.lua")
+    else
+        print("No config.lua")
+    end
 
-if file.exists("config.lua") then
-  dofile("config.lua")
-	else print("No config.lua")
+    if type ~= nil and file.exists("config-" .. type .. ".lua") then
+        dofile("config-" .. type .. ".lua")
+    else
+        print("No device specific config found")
+    end
+
+    if file.exists("functions.lua") then
+        dofile("functions.lua")
+        gpioSetup()
+        wifiSetup()
+    elseif file.exists("wificonfig.lua") then
+        print("No functions file - trying wificonfig")
+        dofile("wificonfig.lua")
+    else
+        print("No functions and wificonfig - noop")
+        wifiSetup()
+    end
+
+    telnet()
 end
-dofile("functions.lc")
 
-gpioSetup()
-wifiSetup()
-telnet()
+function telnet()
+    local telnetServerInUse = false
+    function listenTelnetServer(sock)
+        if telnetServerInUse then
+            sock:send("Telnet server in use.\n")
+            sock:close()
+            return
+        end
+        telnetServerInUse = true
 
-ledTimer = tmr.create()
-ledTimer:alarm(5000, tmr.ALARM_AUTO, function()
-    ledBlink()
-end)
+        function s_output(str)
+            if (sock ~= nil) then
+                sock:send(str)
+            end
+        end
 
-if(file.exists("httpserver.lc") and file.exists("httprequests.lua")) then
-    HttpRequests = {}
-    dofile("httpserver.lc")
-    dofile("httprequests.lua")
+        node.output(s_output, 0)
+
+        sock:on("receive", function(sock, input)
+            node.input(input)
+        end)
+
+        sock:on("disconnection", function(sock)
+            node.output(nil)
+            telnetServerInUse = false
+        end)
+
+        sock:send("Welcome to NodeMCU world.\n> ")
+    end
+
+    local telnetServer = net.createServer(net.TCP, 180)
+    telnetServer:listen(23, listenTelnetServer)
 end
+
+function wifiSetup()
+    wifi.setmode(wifi.STATION)
+    wifi.setphymode(wifi.PHYMODE_N)
+    wifi.sta.sethostname(hostname)
+    wifi.sta.autoconnect(1)
+    wifi.sta.connect()
+end
+
+boot()
