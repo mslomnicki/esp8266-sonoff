@@ -1,7 +1,4 @@
-hostname = "Sonoff-sypialnia"
-ledPin = 7
-buttonPin = 3
-buttonDebounce = 250
-relayPin = 6
-relayInitState = gpio.HIGH
-
+hostname = "sonoff-test"
+mqttuser = "sonoff-1ch"
+mqttpassword = "emvead123"
+type="sonoff-1ch"
