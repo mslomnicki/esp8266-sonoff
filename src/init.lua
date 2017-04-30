@@ -4,6 +4,9 @@ function boot()
     else
         print("No config.lua")
     end
+    if hostname == nil then
+        hostname = 'ESP-' .. node.chipid()
+    end
 
     if type ~= nil and file.exists("config-" .. type .. ".lua") then
         dofile("config-" .. type .. ".lua")

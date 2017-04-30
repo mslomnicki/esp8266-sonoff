@@ -1,10 +1,7 @@
 print("Konfiguracja WiFi")
 
 wifi.setmode(wifi.STATIONAP)
-if hostname ~= nil then
-    hostname = 'ESP-' .. node.chipid()
-end
-    wifi.sta.sethostname(hostname)
+wifi.sta.sethostname(hostname)
 apcfg = {
     ssid = hostname,
     pwd = "12345678",

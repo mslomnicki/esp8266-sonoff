@@ -9,22 +9,8 @@ function ledBlink()
     end
 end
 
-_buttondebounced = 0
-_debouncerTimer = tmr.create()
-_debouncerTimer:register(buttonDebounce, tmr.ALARM_SEMI, function()
-    _buttondebounced = 0
-end)
 function gpioSetup()
     devSetup()
-    if buttonPin ~= nil then
-        gpio.trig(buttonPin, "down", function(level)
-            if (_buttondebounced == 0) then
-                _buttondebounced = 1
-                _debouncerTimer:start()
-                toggleRelay(getMqttEndpoints()[1])
-            end
-        end)
-    end
 end
 
 mqttclient = mqtt.Client(hostname, 180, mqttuser, mqttpassword)
@@ -34,10 +20,11 @@ mqttTimer:alarm(1000, tmr.ALARM_AUTO, function()
     if wifi.sta.status() == wifi.STA_GOTIP and wifi.sta.getip() ~= nil then
         mqttTimer:stop()
         mqttclient:connect(mqttbroker, 1883, 0, function()
-            print("mqttClient connected")
             for index, endpoint in ipairs(getMqttEndpoints()) do
                 mqttclient:subscribe("/" .. hostname .. "/" .. endpoint, 0)
             end
+            mqttclient:subscribe("/" .. hostname .. "/node", 0)
+            sendCurrentState()
         end, function(client, reason)
             mqttTimer:start()
         end)
@@ -51,16 +38,12 @@ mqttclient:on("message", function(conn, topic, data)
     local endpoint = topic:sub(startIndexOfEndpoint + 1)
     if data == "ON" or data == "OFF" then
         setRelay(endpoint, data)
+    elseif (endpoint == "node" and data == "RESTART") then
+        node.restart()
     end
 end)
 
-function toggleRelay(relay)
-    mqttclient:publish("/" .. hostname .. "/" .. relay .. "/state", devToggleRelay(relay), 0, 0)
-    ledBlink()
-end
-
-function setRelay(relay, value)
-    devSetRelay(relay, value)
+function mqttPublish(relay, value)
     mqttclient:publish("/" .. hostname .. "/" .. relay .. "/state", value, 0, 0)
     ledBlink()
 end
